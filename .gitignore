@@ -1,0 +1,15 @@
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# YOLO pretrained weights (downloaded automatically)
+yolo*.pt
+
+# Training runs (large, reproducible)
+runs/
+
+# OS
+.DS_Store
