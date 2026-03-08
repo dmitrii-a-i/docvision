@@ -24,5 +24,25 @@ services:
               count: 1
               capabilities: [gpu]
 
+  # Без GPU — для lite/api режимов на машинах без NVIDIA
+  api-cpu:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      - DEVICE=cpu
+      - PIPELINE_MODE=${PIPELINE_MODE:-lite}
+      - HF_HOME=/root/.cache/huggingface
+      - VLM_API_KEY=${VLM_API_KEY:-}
+      - VLM_BASE_URL=${VLM_BASE_URL:-}
+      - VLM_MODEL=${VLM_MODEL:-}
+      - OCR_LANG=${OCR_LANG:-en}
+      - CORNER_CONF=${CORNER_CONF:-0.25}
+      - FIELD_CONF=${FIELD_CONF:-0.25}
+    profiles:
+      - cpu
+
 volumes:
   hf_cache:
