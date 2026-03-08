@@ -11,7 +11,13 @@ import numpy as np
 from app.config import settings
 from app.models.corner import CornerDetector
 from app.models.fields import FieldDetector
-from app.schemas import ProcessResponse
+from app.schemas import Detection, ProcessResponse
+
+LABEL_COLORS = {
+    "text": (50, 200, 50),
+    "photo": (200, 50, 50),
+    "signature": (50, 50, 200),
+}
 
 log = logging.getLogger(__name__)
 
@@ -92,8 +98,35 @@ class Pipeline:
         _, buf = cv2.imencode(".jpg", dewarped, [cv2.IMWRITE_JPEG_QUALITY, 90])
         dewarped_b64 = base64.b64encode(buf.tobytes()).decode()
 
+        # Draw detection boxes on dewarped image
+        annotated = self._draw_detections(dewarped, detections)
+        _, ann_buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        annotated_b64 = base64.b64encode(ann_buf.tobytes()).decode()
+
         return ProcessResponse(
             fields=fields,
             detections=detections,
             dewarped_image=dewarped_b64,
+            annotated_image=annotated_b64,
         )
+
+    @staticmethod
+    def _draw_detections(
+        image: np.ndarray, detections: list[Detection],
+    ) -> np.ndarray:
+        """Draw detection bounding boxes with labels on image."""
+        vis = image.copy()
+        for det in detections:
+            color = LABEL_COLORS.get(det.label, (128, 128, 128))
+            x1, y1, x2, y2 = [int(v) for v in det.bbox]
+            cv2.rectangle(vis, (x1, y1), (x2, y2), color, 2)
+            text = f"{det.label} {det.confidence:.2f}"
+            (tw, th), _ = cv2.getTextSize(
+                text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1,
+            )
+            cv2.rectangle(vis, (x1, y1 - th - 6), (x1 + tw + 4, y1), color, -1)
+            cv2.putText(
+                vis, text, (x1 + 2, y1 - 4),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+            )
+        return vis

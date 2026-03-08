@@ -13,6 +13,7 @@ class ProcessResponse(BaseModel):
     fields: dict[str, str]
     detections: list[Detection]
     dewarped_image: str  # base64-encoded JPEG
+    annotated_image: str  # base64-encoded JPEG with detection boxes drawn
 
 
 class HealthResponse(BaseModel):

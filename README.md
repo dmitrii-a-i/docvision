@@ -21,11 +21,11 @@ PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_
 
 ```bash
 # Lite на CPU
-PIPELINE_MODE=lite docker compose --profile cpu up --build
+PIPELINE_MODE=lite docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build
 
 # API на CPU
 PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-4o \
-    docker compose --profile cpu up --build
+    docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build
 ```
 
 ```bash
@@ -50,7 +50,8 @@ curl -X POST localhost:8000/process -F "file=@photo.jpg"
     {"label": "text", "confidence": 0.95, "bbox": [10, 20, 300, 50]},
     {"label": "photo", "confidence": 0.92, "bbox": [50, 100, 250, 400]}
   ],
-  "dewarped_image": "<base64 JPEG>"
+  "dewarped_image": "<base64 JPEG>",
+  "annotated_image": "<base64 JPEG с bbox детекций>"
 }
 ```
 
@@ -177,6 +178,7 @@ VLM_API_KEY=... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-5.4 \
 | `fields` | `object` | Извлечённые текстовые поля (`{"surname": "...", ...}`) |
 | `detections` | `array` | Детекции полей: `label`, `confidence`, `bbox [x1,y1,x2,y2]` |
 | `dewarped_image` | `string` | Выровненное изображение в base64 JPEG |
+| `annotated_image` | `string` | Выровненное изображение с нарисованными bbox детекций в base64 JPEG |
 
 **Ошибки:**
 
