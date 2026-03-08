@@ -1,2 +1,213 @@
 # docvision
-A simple API that straightens ID document photos, runs OCR, and returns the extracted fields as JSON
+
+REST API для обработки персональных документов: выравнивание фотографии, детекция полей, извлечение текста.
+
+## Быстрый старт
+
+```bash
+# Standard — локальная VLM (~10 GB VRAM, скачает модель при первом запуске)
+docker compose up --build
+
+# Lite — только YOLO + EasyOCR (~1 GB VRAM, без VLM)
+PIPELINE_MODE=lite docker compose up --build
+
+# API — внешняя VLM через OpenAI-совместимый API
+PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-4o docker compose up --build
+```
+
+```bash
+# Проверка здоровья
+curl localhost:8000/health
+
+# Обработка документа
+curl -X POST localhost:8000/process -F "file=@photo.jpg"
+```
+
+<details>
+<summary>Пример ответа</summary>
+
+```json
+{
+  "fields": {
+    "surname": "SMITH",
+    "name": "JOHN",
+    "birth_date": "01.01.1990"
+  },
+  "detections": [
+    {"label": "text", "confidence": 0.95, "bbox": [10, 20, 300, 50]},
+    {"label": "photo", "confidence": 0.92, "bbox": [50, 100, 250, 400]}
+  ],
+  "dewarped_image": "<base64 JPEG>"
+}
+```
+
+</details>
+
+## Архитектура
+
+![Pipeline](docs/examples/pipeline.jpg)
+
+### Режимы работы
+
+| Режим | Пайплайн | VRAM | Поля |
+|-------|----------|------|------|
+| **lite** | YOLO corners → dewarp → YOLO fields → EasyOCR | ~1 GB | `field_1`, `field_2`, ... |
+| **standard** | YOLO corners → dewarp → YOLO fields → VLM (Qwen2.5-VL-3B) | ~10 GB | `surname`, `name`, ... |
+| **api** | YOLO corners → dewarp → YOLO fields → VLM (внешний API) | ~0.5 GB | `surname`, `name`, ... |
+
+- **lite** — кропает каждое обнаруженное текстовое поле и распознаёт через EasyOCR. Поля нумеруются пространственно (сверху вниз, слева направо). Не требует VLM.
+- **standard** — VLM анализирует всё изображение целиком, извлекает поля с семантическими именами. Дефолт.
+- **api** — то же, что standard, но VLM работает через внешний API (OpenAI, OpenRouter, vLLM).
+
+### Этапы пайплайна
+
+| # | Этап | Модель / Метод | Описание |
+|---|------|---------------|----------|
+| 1 | Детекция углов | YOLO11n-pose (5.6 MB) | Находит 4 угла документа как keypoints |
+| 2 | Выравнивание | OpenCV `getPerspectiveTransform` | Перспективная коррекция по 4 точкам |
+| 3 | Детекция полей | YOLO11n (5.4 MB) | Детектирует области: text, photo, signature |
+| 4 | Извлечение текста | VLM / EasyOCR | Зависит от режима (`PIPELINE_MODE`) |
+
+## Выбор моделей
+
+### Детекция углов: YOLO11n-pose
+
+**Почему:** Задача сводится к keypoint detection — нужно найти ровно 4 угла документа. YOLO11n-pose решает это одним проходом с минимальным размером модели (5.6 MB).
+
+**Альтернативы:**
+- *OpenCV (Canny + Hough / findContours)* — работает только на контрастных фонах, не справляется с клаттером и частичной видимостью
+- *Полноразмерные детекторы (YOLOv8-l, Detectron2)* — избыточны для 4 точек, в 10-50x больше по размеру
+- *Segmentation + postprocessing* — двухэтапный подход, сложнее в поддержке
+
+**Обучение:** дообучена на MIDV-500 (15 000 кадров, 50 типов документов, 5 условий съёмки). Конвергенция за ~50 эпох.
+
+### Детекция полей: YOLO11n
+
+**Почему:** 3 класса (text, photo, signature) — простая задача для object detection. YOLO11n (5.4 MB) обеспечивает достаточную точность при минимальном размере.
+
+**Альтернативы:**
+- *YOLO11m/l* — точнее, но 40-90 MB, избыточно для 3 классов
+- *LayoutLM / DocTR* — ориентированы на сложные макеты (таблицы, параграфы), перегружены для ID-карт
+- *Rule-based (по координатам)* — не обобщает на новые типы документов
+
+**Обучение:** дообучена на MIDV-2020 templates (1000 документов, 10 типов) с аннотациями полей.
+
+### Извлечение текста: Qwen2.5-VL-3B-Instruct (standard) / EasyOCR (lite)
+
+**Standard/API режимы — VLM:** одной моделью решает и распознавание текста, и структурирование полей. Qwen2.5-VL-3B — компромисс между качеством и ограничением в 10 GB VRAM. При наличии `VLM_API_KEY` используется внешний OpenAI-совместимый API (GPT, Claude и др.).
+
+**Lite режим — EasyOCR:** классический OCR-движок на PyTorch. Работает с минимальным VRAM (~1 GB), но не структурирует поля — возвращает `field_1`, `field_2`, ... в порядке расположения на документе (сверху вниз, слева направо).
+
+**Альтернативы VLM:**
+- *PaddleOCR-VL (0.9B)* — raw OCR модель, 100% parse failure на задаче извлечения полей
+- *DeepSeek-OCR-2 (3B)* — аналогично, raw OCR без структурирования
+- *Qwen2.5-VL-7B* — лучше по качеству (CER 0.258 vs 0.428), но не помещается в 10 GB VRAM
+- *Qwen3-VL-8B* — лучший результат (CER 0.250), но ~16 GB VRAM
+
+## Метрики
+
+Тестирование на 50 деwarped кадрах из MIDV-2019/2020 (15 типов документов, 625 GT полей).
+Prompt-стратегия: few_shot (пример JSON для каждого типа документа).
+
+| Модель | CER | Exact Match | Примечание |
+|--------|----:|------------:|------------|
+| GPT-5.4 (API) | 0.153 | — | Лучший результат, внешний API |
+| Qwen3-VL-8B | 0.250 | 68.4% | two_stage стратегия, ~16 GB VRAM |
+| Qwen2.5-VL-7B | 0.258 | 67.5% | Лучший из 7B, ~14 GB VRAM |
+| Qwen2.5-VL-3B | 0.428 | 54.2% | **Дефолт** — помещается в 10 GB |
+
+**CER** (Character Error Rate) — доля символьных ошибок. Ниже — лучше.
+
+### Влияние prompt-стратегии
+
+Эксперимент показал, что промпт важнее размера модели:
+
+| Стратегия | CER (3B) | CER (7B) | Описание |
+|-----------|----------|----------|----------|
+| few_shot | 0.428 | 0.258 | Пример JSON для типа документа |
+| field_list | 1.095 | 0.970 | Список ожидаемых полей в промпте |
+| generic | 0.937 | 0.846 | "Extract all text fields as JSON" |
+
+Стратегия few_shot с 3B (CER 0.428) лучше, чем generic с 7B (CER 0.846).
+
+## API
+
+### `POST /process`
+
+Обработка фотографии документа.
+
+**Вход:** `multipart/form-data`, поле `file` — изображение (JPEG, PNG).
+
+**Выход:**
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `fields` | `object` | Извлечённые текстовые поля (`{"surname": "...", ...}`) |
+| `detections` | `array` | Детекции полей: `label`, `confidence`, `bbox [x1,y1,x2,y2]` |
+| `dewarped_image` | `string` | Выровненное изображение в base64 JPEG |
+
+**Ошибки:**
+
+| Код | Причина |
+|-----|---------|
+| 400 | Пустой файл |
+| 422 | Документ не найден на изображении / не удалось декодировать |
+| 503 | Модели ещё загружаются |
+
+### `GET /health`
+
+```json
+{"status": "ok", "device": "cuda", "models_loaded": ["corner_detect", "field_detect", "vlm_local:Qwen/Qwen2.5-VL-3B-Instruct"]}
+```
+
+## Конфигурация
+
+Переменные окружения (файл `.env` или `docker-compose.yml`):
+
+| Переменная | По умолчанию | Описание |
+|------------|-------------|----------|
+| `PIPELINE_MODE` | `standard` | Режим: `lite`, `standard`, `api` |
+| `DEVICE` | `auto` | Устройство: `auto`, `cuda`, `cpu` |
+| `VLM_MODEL_ID` | `Qwen/Qwen2.5-VL-3B-Instruct` | Локальная VLM модель (standard) |
+| `VLM_API_KEY` | — | API ключ внешней VLM (api) |
+| `VLM_BASE_URL` | — | Base URL OpenAI-совместимого API (api) |
+| `VLM_MODEL` | — | Название модели для API (api) |
+| `OCR_LANG` | `en` | Язык OCR, через запятую (lite) |
+| `CORNER_CONF` | `0.25` | Порог уверенности детекции углов |
+| `FIELD_CONF` | `0.25` | Порог уверенности детекции полей |
+| `HF_HOME` | `/root/.cache/huggingface` | Кеш HuggingFace (внутри контейнера) |
+
+## Структура проекта
+
+```
+app/
+├── main.py          # FastAPI: endpoints /process, /health
+├── config.py        # Pydantic Settings: env vars
+├── pipeline.py      # Оркестрация: bytes → ProcessResponse
+├── schemas.py       # Pydantic-модели ответов
+└── models/
+    ├── corner.py    # YOLO11n-pose: углы + dewarp
+    ├── fields.py    # YOLO11n: text/photo/signature
+    ├── vlm.py       # Qwen2.5-VL (local) / OpenAI API (standard/api)
+    └── ocr.py       # EasyOCR обёртка (lite)
+models/
+├── corner_detect.pt # Веса детекции углов
+└── field_detect.pt  # Веса детекции полей
+```
+
+## Требования
+
+- Docker + Docker Compose
+- NVIDIA GPU с >=10 GB VRAM (standard) / >=1 GB (lite) или CPU + внешний API (api)
+- NVIDIA Container Toolkit
+
+## Тестовое окружение
+
+- Ubuntu Server 22.04
+- Docker Compose v2.25.0
+- NVIDIA GeForce RTX 2080 Ti (11 GB)
+- NVIDIA Driver 535.171.04
+
+## Методология работы с LLM
+
+Описание методологии использования LLM-инструментов при разработке: [docs/methodology.md](docs/methodology.md)

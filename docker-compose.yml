@@ -1,0 +1,28 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      - DEVICE=${DEVICE:-auto}
+      - PIPELINE_MODE=${PIPELINE_MODE:-standard}
+      - HF_HOME=/root/.cache/huggingface
+      - VLM_MODEL_ID=${VLM_MODEL_ID:-Qwen/Qwen2.5-VL-3B-Instruct}
+      - VLM_API_KEY=${VLM_API_KEY:-}
+      - VLM_BASE_URL=${VLM_BASE_URL:-}
+      - VLM_MODEL=${VLM_MODEL:-}
+      - OCR_LANG=${OCR_LANG:-en}
+      - CORNER_CONF=${CORNER_CONF:-0.25}
+      - FIELD_CONF=${FIELD_CONF:-0.25}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  hf_cache:

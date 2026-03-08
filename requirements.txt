@@ -1,0 +1,14 @@
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic-settings>=2.0
+python-multipart>=0.0.18
+ultralytics>=8.3
+opencv-python-headless>=4.10
+numpy>=1.26
+torch>=2.6
+transformers>=4.49
+accelerate>=1.0
+qwen-vl-utils>=0.0.8
+openai>=1.0
+Pillow>=10.0
+easyocr>=1.7

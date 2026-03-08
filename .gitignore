@@ -4,11 +4,16 @@
 # Python
 __pycache__/
 *.pyc
+.venv/
+
+# Environment
+.env
 
 # YOLO pretrained weights (downloaded automatically)
 yolo*.pt
 
-# Training runs (large, reproducible)
+# Data & training runs (large, reproducible)
+data/
 runs/
 
 # OS
