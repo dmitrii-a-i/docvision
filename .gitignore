@@ -18,6 +18,7 @@ runs/
 
 # Local notes
 *.txt
+*.pdf
 
 # OS
 .DS_Store
