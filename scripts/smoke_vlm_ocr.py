@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Quick test: Qwen2.5-VL-3B on dewarped document images.
+"""Quick smoke test: Qwen2.5-VL-7B on dewarped document images.
 
 Usage:
-    python scripts/test_vlm_ocr.py --images data/dewarp_examples/ --device cuda:1
+    python scripts/smoke_vlm_ocr.py --images data/dewarp_examples/ --device cuda:1
 """
 
 from __future__ import annotations

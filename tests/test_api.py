@@ -100,6 +100,7 @@ class TestProcessEndpoint:
         assert data["fields"]["name"] == "TEST"
         assert len(data["detections"]) == 2
         assert data["dewarped_image"] == "AAAA"
+        assert data["annotated_image"] == "BBBB"
 
     def test_no_file_field(self, client):
         r = client.post("/process")
