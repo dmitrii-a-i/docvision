@@ -2,4 +2,7 @@ services:
   api:
     environment:
       - DEVICE=cpu
-    deploy: {}
+    deploy:
+      resources:
+        reservations:
+          devices: !reset []
