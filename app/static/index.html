@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocVision</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1b26;
+  --border: #2a2b3d;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --accent: #7c6ef0;
+  --accent-hover: #9580ff;
+  --success: #50fa7b;
+  --error: #ff5555;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+header h1 span { color: var(--accent); }
+
+.status-badge {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.status-badge.ok { border-color: var(--success); color: var(--success); }
+.status-badge.loading { border-color: #f1fa8c; color: #f1fa8c; }
+.status-badge.error { border-color: var(--error); color: var(--error); }
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 64px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--surface);
+}
+
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(124, 110, 240, 0.05);
+}
+
+.upload-zone svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  color: var(--text-dim);
+}
+
+.upload-zone p { color: var(--text-dim); margin-top: 8px; font-size: 14px; }
+
+.upload-zone .browse { color: var(--accent); text-decoration: underline; cursor: pointer; }
+
+/* Preview */
+.preview-section {
+  margin-top: 24px;
+  display: none;
+}
+
+.preview-section.visible { display: block; }
+
+.preview-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.preview-card img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.preview-info { flex: 1; }
+.preview-info .name { font-size: 14px; font-weight: 500; }
+.preview-info .size { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Spinner */
+.spinner-overlay {
+  display: none;
+  margin-top: 24px;
+  text-align: center;
+  padding: 48px;
+}
+
+.spinner-overlay.visible { display: block; }
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner-overlay p { color: var(--text-dim); font-size: 14px; }
+
+/* Error */
+.error-msg {
+  display: none;
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(255, 85, 85, 0.1);
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  color: var(--error);
+  font-size: 14px;
+}
+
+.error-msg.visible { display: block; }
+
+/* Results */
+.results {
+  display: none;
+  margin-top: 32px;
+}
+
+.results.visible { display: block; }
+
+.results h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.images-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .images-row { grid-template-columns: 1fr; }
+}
+
+.image-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.image-card .label {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.image-card img {
+  width: 100%;
+  display: block;
+}
+
+/* Fields table */
+.fields-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.fields-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border);
+}
+
+.fields-table td {
+  padding: 10px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fields-table tr:last-child td { border-bottom: none; }
+
+.fields-table .key { color: var(--accent); font-weight: 500; }
+
+/* Detections */
+.det-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.det-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.det-item .det-label { font-weight: 500; }
+
+.det-item .det-conf {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.reset-row {
+  text-align: center;
+  margin-top: 24px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span>Doc</span>Vision</h1>
+    <div id="statusBadge" class="status-badge">...</div>
+  </header>
+
+  <!-- Upload -->
+  <div id="uploadZone" class="upload-zone">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+    </svg>
+    <div>Перетащите изображение сюда или <span class="browse">выберите файл</span></div>
+    <p>JPG, PNG, WEBP</p>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+  </div>
+
+  <!-- Preview -->
+  <div id="previewSection" class="preview-section">
+    <div class="preview-card">
+      <img id="previewImg" src="" alt="preview">
+      <div class="preview-info">
+        <div class="name" id="fileName"></div>
+        <div class="size" id="fileSize"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="processBtn" class="btn btn-primary">Обработать</button>
+      <button id="clearBtn" class="btn btn-ghost">Очистить</button>
+    </div>
+  </div>
+
+  <!-- Spinner -->
+  <div id="spinner" class="spinner-overlay">
+    <div class="spinner"></div>
+    <p>Обработка документа...</p>
+  </div>
+
+  <!-- Error -->
+  <div id="errorMsg" class="error-msg"></div>
+
+  <!-- Results -->
+  <div id="results" class="results">
+    <h2>Результат</h2>
+
+    <div class="images-row">
+      <div class="image-card">
+        <div class="label">Dewarped</div>
+        <img id="dewarpedImg" src="" alt="dewarped">
+      </div>
+      <div class="image-card">
+        <div class="label">Детекции</div>
+        <img id="annotatedImg" src="" alt="annotated">
+      </div>
+    </div>
+
+    <h2>Поля</h2>
+    <table class="fields-table">
+      <thead><tr><th>Поле</th><th>Значение</th></tr></thead>
+      <tbody id="fieldsBody"></tbody>
+    </table>
+
+    <h2>Детекции</h2>
+    <div id="detList" class="det-list"></div>
+
+    <div class="reset-row">
+      <button id="resetBtn" class="btn btn-primary">Новый документ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const uploadZone = $('uploadZone');
+const fileInput = $('fileInput');
+const previewSection = $('previewSection');
+const previewImg = $('previewImg');
+const spinner = $('spinner');
+const errorMsg = $('errorMsg');
+const results = $('results');
+const statusBadge = $('statusBadge');
+
+let selectedFile = null;
+
+// Health check
+async function checkHealth() {
+  try {
+    const r = await fetch('/health');
+    const d = await r.json();
+    statusBadge.textContent = d.status === 'ok'
+      ? `${d.device} | ${d.models_loaded.length} models`
+      : d.status;
+    statusBadge.className = 'status-badge ' + (d.status === 'ok' ? 'ok' : 'loading');
+  } catch {
+    statusBadge.textContent = 'offline';
+    statusBadge.className = 'status-badge error';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 10000);
+
+// File selection
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) selectFile(e.target.files[0]); });
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+});
+
+function selectFile(file) {
+  selectedFile = file;
+  previewImg.src = URL.createObjectURL(file);
+  $('fileName').textContent = file.name;
+  $('fileSize').textContent = formatSize(file.size);
+  uploadZone.style.display = 'none';
+  previewSection.classList.add('visible');
+  results.classList.remove('visible');
+  errorMsg.classList.remove('visible');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// Clear / reset
+function resetUI() {
+  selectedFile = null;
+  fileInput.value = '';
+  uploadZone.style.display = '';
+  previewSection.classList.remove('visible');
+  spinner.classList.remove('visible');
+  results.classList.remove('visible');
+  errorMsg.classList.remove('visible');
+}
+
+$('clearBtn').addEventListener('click', resetUI);
+$('resetBtn').addEventListener('click', resetUI);
+
+// Process
+$('processBtn').addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  previewSection.classList.remove('visible');
+  spinner.classList.add('visible');
+  errorMsg.classList.remove('visible');
+  results.classList.remove('visible');
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+
+  try {
+    const r = await fetch('/process', { method: 'POST', body: form });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(err.detail || r.statusText);
+    }
+    const data = await r.json();
+    showResults(data);
+  } catch (e) {
+    errorMsg.textContent = e.message;
+    errorMsg.classList.add('visible');
+    previewSection.classList.add('visible');
+  } finally {
+    spinner.classList.remove('visible');
+  }
+});
+
+function showResults(data) {
+  // Images
+  $('dewarpedImg').src = 'data:image/jpeg;base64,' + data.dewarped_image;
+  $('annotatedImg').src = 'data:image/jpeg;base64,' + data.annotated_image;
+
+  // Fields table
+  const tbody = $('fieldsBody');
+  tbody.innerHTML = '';
+  const entries = Object.entries(data.fields);
+  if (entries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" style="color:var(--text-dim)">Поля не найдены</td></tr>';
+  } else {
+    for (const [k, v] of entries) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="key">${esc(k)}</td><td>${esc(v)}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // Detections
+  const detList = $('detList');
+  detList.innerHTML = '';
+  for (const det of data.detections) {
+    const div = document.createElement('div');
+    div.className = 'det-item';
+    div.innerHTML = `<span class="det-label">${esc(det.label)}</span><span class="det-conf">${(det.confidence * 100).toFixed(1)}%</span>`;
+    detList.appendChild(div);
+  }
+
+  results.classList.add('visible');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
