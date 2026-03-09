@@ -16,5 +16,8 @@ yolo*.pt
 data/
 runs/
 
+# Local notes
+*.txt
+
 # OS
 .DS_Store
