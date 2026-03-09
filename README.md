@@ -34,6 +34,9 @@ curl localhost:8000/health
 
 # Обработка документа
 curl -X POST localhost:8000/process -F "file=@photo.jpg"
+
+# Или открыть веб-интерфейс
+open http://localhost:8000
 ```
 
 <details>
@@ -165,6 +168,10 @@ VLM_API_KEY=... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-5.4 \
 
 ## API
 
+### Web UI
+
+Веб-интерфейс доступен по адресу `/` — drag & drop загрузка, отображение результатов (dewarped/annotated изображения, таблица полей, список детекций).
+
 ### `POST /process`
 
 Обработка фотографии документа.
@@ -215,10 +222,12 @@ VLM_API_KEY=... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-5.4 \
 
 ```
 app/
-├── main.py          # FastAPI: endpoints /process, /health
+├── main.py          # FastAPI: endpoints /process, /health, / (Web UI)
 ├── config.py        # Pydantic Settings: env vars
 ├── pipeline.py      # Оркестрация: bytes → ProcessResponse
 ├── schemas.py       # Pydantic-модели ответов
+├── static/
+│   └── index.html   # Web UI (single-page app)
 └── models/
     ├── corner.py    # YOLO11n-pose: углы + dewarp
     ├── fields.py    # YOLO11n: text/photo/signature
@@ -227,7 +236,22 @@ app/
 models/
 ├── corner_detect.pt # Веса детекции углов
 └── field_detect.pt  # Веса детекции полей
+examples/            # Примеры документов для тестирования
 ```
+
+## Примеры
+
+В папке `examples/` — 5 фотографий документов из MIDV-2020 для тестирования:
+
+| Файл | Документ |
+|------|----------|
+| `albanian_id.jpg` | ID-карта Албании |
+| `spanish_id.jpg` | ID-карта Испании |
+| `finnish_id.jpg` | ID-карта Финляндии |
+| `slovak_id.jpg` | ID-карта Словакии |
+| `azerbaijani_passport.jpg` | Паспорт Азербайджана |
+
+Все примеры — фото на столе с фоном и перспективой, латиница. Работают во всех режимах (lite/standard/api).
 
 ## Требования
 

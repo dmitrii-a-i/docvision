@@ -54,7 +54,15 @@ Claude написал:
 - docker-compose.yml с GPU passthrough и persistent HF cache
 - Обработку ошибок и fallback `max_completion_tokens` → `max_tokens`
 
-### 6. Документация и визуализация
+### 6. Web UI и деплой
+
+Claude написал:
+- Single-page web UI (`app/static/index.html`) — drag & drop загрузка, отображение результатов
+- Статический маунт в FastAPI (`/static`, `GET /`)
+- Деплой на удалённый сервер (CPU + OpenAI API mode) через Docker Compose
+- Исправление `docker-compose.cpu.yml` — `!reset` для очистки GPU reservation при merge
+
+### 7. Документация и визуализация
 
 - README с обоснованием моделей
 - Скрипт генерации демо-картинок пайплайна

@@ -48,17 +48,16 @@ header h1 {
 
 header h1 span { color: var(--accent); }
 
-.status-badge {
-  font-size: 13px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
 }
 
-.status-badge.ok { border-color: var(--success); color: var(--success); }
-.status-badge.loading { border-color: #f1fa8c; color: #f1fa8c; }
-.status-badge.error { border-color: var(--error); color: var(--error); }
+.status-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.status-dot.loading { background: #f1fa8c; box-shadow: 0 0 6px #f1fa8c; }
+.status-dot.error { background: var(--error); box-shadow: 0 0 6px var(--error); }
 
 /* Upload zone */
 .upload-zone {
@@ -299,7 +298,7 @@ header h1 span { color: var(--accent); }
 <div class="container">
   <header>
     <h1><span>Doc</span>Vision</h1>
-    <div id="statusBadge" class="status-badge">...</div>
+    <div id="statusDot" class="status-dot"></div>
   </header>
 
   <!-- Upload -->
@@ -376,7 +375,7 @@ const previewImg = $('previewImg');
 const spinner = $('spinner');
 const errorMsg = $('errorMsg');
 const results = $('results');
-const statusBadge = $('statusBadge');
+const statusDot = $('statusDot');
 
 let selectedFile = null;
 
@@ -385,13 +384,9 @@ async function checkHealth() {
   try {
     const r = await fetch('/health');
     const d = await r.json();
-    statusBadge.textContent = d.status === 'ok'
-      ? `${d.device} | ${d.models_loaded.length} models`
-      : d.status;
-    statusBadge.className = 'status-badge ' + (d.status === 'ok' ? 'ok' : 'loading');
+    statusDot.className = 'status-dot ' + (d.status === 'ok' ? 'ok' : 'loading');
   } catch {
-    statusBadge.textContent = 'offline';
-    statusBadge.className = 'status-badge error';
+    statusDot.className = 'status-dot error';
   }
 }
 checkHealth();
