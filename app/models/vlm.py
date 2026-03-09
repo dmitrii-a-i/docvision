@@ -59,6 +59,10 @@ def _image_to_base64(image: np.ndarray) -> str:
 class LocalVLM:
     """Local Qwen2.5-VL inference."""
 
+    # Vision token budget: max 1024 tokens ≈ 1024*28*28 = 802816 pixels
+    MAX_PIXELS = 802816
+    MIN_PIXELS = 256 * 28 * 28  # 200704
+
     def __init__(self, model_id: str, device: str):
         import torch
         from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
@@ -71,15 +75,30 @@ class LocalVLM:
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_id, torch_dtype=dtype, device_map=device,
         )
-        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.processor = AutoProcessor.from_pretrained(
+            model_id,
+            min_pixels=self.MIN_PIXELS,
+            max_pixels=self.MAX_PIXELS,
+        )
         self.device = device
-        log.info("Local VLM loaded.")
+        log.info("Local VLM loaded (max_pixels=%d).", self.MAX_PIXELS)
+
+    @staticmethod
+    def _resize_for_vlm(image: np.ndarray, max_pixels: int) -> np.ndarray:
+        """Downscale image if it exceeds max_pixels budget."""
+        h, w = image.shape[:2]
+        if h * w <= max_pixels:
+            return image
+        scale = (max_pixels / (h * w)) ** 0.5
+        new_w, new_h = int(w * scale), int(h * scale)
+        return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
     def extract_fields(self, image: np.ndarray) -> dict[str, str]:
         """Extract document fields from a dewarped image."""
         import torch
         from qwen_vl_utils import process_vision_info
 
+        image = self._resize_for_vlm(image, self.MAX_PIXELS)
         pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         prompt = _make_few_shot_prompt()
 
@@ -114,6 +133,9 @@ class LocalVLM:
         raw_output = self.processor.batch_decode(
             generated_ids_trimmed, skip_special_tokens=True,
         )[0]
+
+        del inputs, generated_ids, generated_ids_trimmed
+        torch.cuda.empty_cache()
 
         return _parse_json_output(raw_output)
 
