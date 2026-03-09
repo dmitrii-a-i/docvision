@@ -14,7 +14,7 @@ docker compose up --build
 PIPELINE_MODE=lite docker compose up --build
 
 # API - внешняя VLM через OpenAI-совместимый API
-PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-4o docker compose up --build
+PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-5.4 docker compose up --build
 ```
 
 **Без GPU (CPU):**
@@ -24,7 +24,7 @@ PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_
 PIPELINE_MODE=lite docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build
 
 # API на CPU
-PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-4o \
+PIPELINE_MODE=api VLM_API_KEY=sk-... VLM_BASE_URL=https://api.openai.com/v1 VLM_MODEL=gpt-5.4 \
     docker compose -f docker-compose.yml -f docker-compose.cpu.yml up --build
 ```
 
